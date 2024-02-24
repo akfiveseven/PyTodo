@@ -45,5 +45,6 @@ class Program:
 
 prog = Program()
 # prog.printmenu()
-prog.command_input()
-prog.print_command()
+while True:
+    prog.command_input()
+    prog.print_command()
