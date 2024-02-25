@@ -28,13 +28,19 @@ class TaskList():
     def PushTask(self, label, is_complete, bounty):
         self.tasks.append(Task(label, is_complete, bounty))
 
+    def PopTask(self, idx):
+        self.tasks.pop(idx)
+
+    def CompleteTask(self, idx):
+        self.tasks[idx].is_complete = True
+
     def ModePrint(self, mode):
         if not self.tasks:
             print(f"{self.name.upper()}")
             print("NO TASKS IN LIST")
             return
         if (mode == "todo"):
-            print(f"{self.name.upper()} [TODO]")
+            print(f"{self.name.upper()} [todo]")
             for i in self.tasks:
                 if (i.is_complete is False):
                     i.Print()
@@ -45,8 +51,10 @@ class TaskList():
                     i.Print()
         if (mode == "all"):
             print(f"{self.name.upper()} [ALL]")
-            for i in self.tasks:
-                i.Print()
+            for i in range(0, len(self.tasks)):
+                j = i + 1
+                print(f"({j})", end=" ")
+                self.tasks[i].Print()
 
 
 class Reward:
@@ -72,10 +80,17 @@ class RewardList():
     def PushReward(self, label, is_claimed, price):
         self.rewards.append(Reward(label, is_claimed, price))
 
+    def PopReward(self, idx):
+        self.rewards.pop(idx)
+
+    def ClaimReward(self, idx):
+        self.rewards[idx].is_claimed = True
+
     def ModePrint(self, mode):
         if not self.rewards:
             print("REWARDS:")
-            print("NO TASKS IN LIST")
+            print("NO REWARDS")
+            return
         if (mode == "available"):
             print("REWARDS [PURCHASABLE]")
             for i in self.rewards:
@@ -88,65 +103,52 @@ class RewardList():
                     i.Print()
         if (mode == "all"):
             print("REWARDS [ALL]")
-            for i in self.rewards:
-                i.Print()
+            for i in range(0, len(self.rewards)):
+                j = i + 1
+                print(f"({j})", end=" ")
+                self.rewards[i].Print()
 
 
 class Interface:
     def __init__(self):
-        self.prefix = "[user@automaton] $ "
-        self.task_lists = []
-        self.rewards = RewardList()
+        self.user_prefix = "[user@automaton] $ "
+        self.output_prefix = "[output@automaton] "
+        self.error_prefix = "[error@automaton] "
+        self.tasklist = TaskList("todo")
+        self.rewardlist = RewardList()
         self.loaded_data = []
         self.command = None
         self.balance = 0
 
-    def Create_Task_List(self, name):
-        self.task_lists.append(TaskList(name))
+    def Add_Task(self, label, bounty):
+        self.tasklist.PushTask(label, False, bounty)
 
-    def Get_Task_List_Index(self, list_name):
-        if self.task_lists:
-            for i in range(0, len(self.task_lists)):
-                if self.task_lists[i].name == list_name:
-                    return i
-                else:
-                    print(f"[output@automaton] $ Task list {list_name} not found.")
-                    return -1
+    def Remove_Task(self, idx):
+        self.tasklist.PopTask(idx)
 
-    def Add_Task(self, label, complete, bounty, list_name):
-        list_index = self.Get_Task_List_Index(list_name)
-
-        if list_index != -1:
-            self.task_lists[list_index].PushTask(label, complete, bounty)
-
-    def Remove_Task(self, target_list_name, task_pos):
-        list_index = self.Get_Task_List_Index(target_list_name)
-
-        if list_index != -1:
-            self.task_lists[list_index].tasks.pop(task_pos)
-
-    def Consume_Task(self, list_name, pos):
-        list_idx = self.Get_Task_List_Index(list_name)
-        if list_idx != -1:
-            bounty = self.task_lists[list_idx].tasks[pos].bounty
-            self.Remove_Task(list_name, pos)
+    def Consume_Task(self, idx):
+        if self.tasklist.tasks[idx].is_complete is False:
+            bounty = self.tasklist.tasks[idx].bounty
+            self.tasklist.CompleteTask(idx)
             self.balance = self.balance + bounty
 
     def Add_Reward(self, label, price):
-        self.rewards.PushReward(label, False, price)
+        self.rewardlist.PushReward(label, False, price)
 
-    def Remove_Reward(self, pos):
-        self.rewards.rewards.pop(pos)
+    def Remove_Reward(self, idx):
+        self.rewardlist.PopReward(idx)
 
-    def Consume_Reward(self, pos):
-        reward = self.rewards.rewards[pos]
-        if self.balance >= reward.price:
-            self.balance = self.balance - reward.price
-            self.Remove_Reward(pos)
+    def Consume_Reward(self, idx):
+        reward = self.rewardlist.rewards[idx]
+        if reward.is_claimed is False:
+            if self.balance >= reward.price:
+                self.balance = self.balance - reward.price
+                # self.Remove_Reward(idx)
+                self.rewardlist.ClaimReward(idx)
 
     def Save(self, filename):
-        tlist = self.task_lists
-        rewards = self.rewards
+        tlist = self.tasklist
+        rewards = self.rewardlist
         bal = self.balance
         with open(f"{filename}.pk1", "wb") as file:
             pickle.dump(tlist, file)
@@ -159,8 +161,8 @@ class Interface:
             rewards = pickle.load(file)
             bal = pickle.load(file)
 
-            self.task_lists = tlist
-            self.rewards = rewards
+            self.tasklist = tlist
+            self.rewardlist = rewards
             self.balance = bal
 
     def Start(self):
@@ -171,7 +173,7 @@ class Interface:
         print("Welcome to Autmaton! The only productivity app you will EVER need!")
         while True:
             print(f"BALANCE: {self.balance}")
-            self.command = input(self.prefix)
+            self.command = input(self.user_prefix)
             self.clear()
             self.Execute(self.command)
             print()
@@ -181,36 +183,46 @@ class Interface:
         if args[0] == "quit" or args[0] == "exit":
             print("[output@automaton] Automaton exited.")
             sys.exit()
-        elif args[0] == "create":
-            if args[1] == "list":
-                if args[2]:
-                    self.Create_Task_List(args[2])
-            elif args[1] == "task":
-                if args[2] and args[3] and args[4]:
-                    self.Add_Task(args[2], False, int(args[3]), args[4])
-            elif args[1] == "reward":
-                if args[2] and args[3]:
-                    self.Add_Reward(args[2], args[3])
-        elif args[0] == "rewards":
-            self.rewards.ModePrint("all")
-        elif args[0] == "list":
-            list_idx = self.Get_Task_List_Index(args[1])
-            self.task_lists[list_idx].ModePrint("all")
-        elif args[0] == "consume":
-            if args[1] == "task":
-                self.Consume_Task(args[3], int(args[2]))
-            elif args[1] == "reward":
-                self.Consume_Reward(int(args[2]))
-        elif args[0] == "remove":
-            if args[1] == "task":
-                self.Remove_Task(args[3], int(args[2]))
-            elif args[1] == "reward":
-                self.Remove_Reward(int(args[2]))
         elif args[0] == "save":
             self.Save("data")
         elif args[0] == "load":
             self.Load("data")
-
+        elif args[0] == "list":
+            if len(args) == 1:
+                self.tasklist.ModePrint("all")
+                return
+            if args[1] == "add":
+                if len(args) == 4:
+                    self.Add_Task(args[2], int(args[3]))
+                else:
+                    print("Syntax error: args")
+            if args[1] == "remove":
+                if len(args) == 3:
+                    task_to_remove_idx = int(args[2])-1
+                    self.tasklist.PopTask(task_to_remove_idx)
+            if args[1] == "consume":
+                if len(args) == 3:
+                    task_to_consume_idx = int(args[2])-1
+                    self.Consume_Task(task_to_consume_idx)
+            self.tasklist.ModePrint("all")
+        elif args[0] == "rewards":
+            if len(args) == 1:
+                self.rewardlist.ModePrint("all")
+                return
+            if args[1] == "add":
+                if len(args) == 4:
+                    self.Add_Reward(args[2], int(args[3]))
+                else:
+                    print("Syntax error: args")
+            if args[1] == "remove":
+                if len(args) == 3:
+                    reward_to_remove_idx = int(args[2])-1
+                    self.rewardlist.PopReward(reward_to_remove_idx)
+            if args[1] == "consume":
+                if len(args) == 3:
+                    reward_to_consume_idx = int(args[2])-1
+                    self.Consume_Reward(reward_to_consume_idx)
+            self.rewardlist.ModePrint("all")
         else:
             print(f"[output@automaton] Error: Unknown command: {cmd}")
 
