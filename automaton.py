@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys
 import platform
@@ -115,10 +116,13 @@ class Interface:
         self.output_prefix = "[output@automaton] "
         self.error_prefix = "[error@automaton] "
         self.tasklist = TaskList("todo")
+        self.dailylist = TaskList("daily")
         self.rewardlist = RewardList()
         self.loaded_data = []
         self.command = None
         self.balance = 0
+        self.saved_date = None
+        self.current_date = datetime.date.today()
 
     def Add_Task(self, label, bounty):
         self.tasklist.PushTask(label, False, bounty)
@@ -148,22 +152,30 @@ class Interface:
 
     def Save(self, filename):
         tlist = self.tasklist
+        daily = self.dailylist
         rewards = self.rewardlist
         bal = self.balance
+        d = self.saved_date
         with open(f"{filename}.pk1", "wb") as file:
             pickle.dump(tlist, file)
+            pickle.dump(daily, file)
             pickle.dump(rewards, file)
             pickle.dump(bal, file)
+            pickle.dump(d, file)
 
     def Load(self, filename):
         with open(f"{filename}.pk1", "rb") as file:
             tlist = pickle.load(file)
+            daily = pickle.load(file)
             rewards = pickle.load(file)
             bal = pickle.load(file)
+            d8 = pickle.load(file)
 
             self.tasklist = tlist
+            self.dailylist = daily
             self.rewardlist = rewards
             self.balance = bal
+            self.saved_date = d8
 
     def Start(self):
         if os.path.exists("data.pk1"):
@@ -172,6 +184,7 @@ class Interface:
         print("Automaton v0.1a by Ammar Khan")
         print("Welcome to Autmaton! The only productivity app you will EVER need!")
         while True:
+            print(self.saved_date)
             print(f"BALANCE: {self.balance}")
             self.command = input(self.user_prefix)
             self.clear()
@@ -189,6 +202,7 @@ class Interface:
             self.Load("data")
         elif args[0] == "list":
             if len(args) == 1:
+                self.dailylist.ModePrint("all")
                 self.tasklist.ModePrint("all")
                 return
             if args[1] == "add":
@@ -242,9 +256,26 @@ class Interface:
 def main():
     prog = Interface()
 
+    # prog.Load("data")
+
+    # prog.dailylist.PushTask("Healthy Breakfast", False, 20)
+    # prog.dailylist.PushTask("Write down todo tasks", False, 20)
+    # prog.dailylist.PushTask("Exercise ~20-60 min", False, 20)
+    # prog.dailylist.PushTask("Wash face/shower, brush teeth", False, 20)
+    # prog.dailylist.PushTask("Complete todo tasks", False, 50)
+    # prog.dailylist.PushTask("Duolingo ~20-30 min", False, 20)
+    # prog.dailylist.PushTask("Coding Daily: projects, leetcode, codecademy", False, 20)
+    # prog.dailylist.PushTask("Read ~30-60 min", False, 20)
+    # prog.dailylist.PushTask("Lift", False, 20)
+
+    # prog.Save("data")
     prog.Start()
 
+
+
+
 # ===============================================
+
 
 
 main()
